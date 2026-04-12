@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>贪吃蛇大作战</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 110px 16px 24px;
+      background: #2c3e50;
+      font-family: Arial, sans-serif;
+      color: #fff;
+    }
+    .game-container {
+      text-align: center;
+      width: 100%;
+      max-width: 720px;
+    }
+    h1 {
+      margin-bottom: 20px;
+      font-size: 30px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    }
+    .game-info {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .info-box {
+      background: rgba(255,255,255,0.08);
+      border-radius: 14px;
+      padding: 12px;
+      font-weight: bold;
+    }
+    canvas {
+      background-color: #27ae60;
+      border: 4px solid #2ecc71;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      max-width: 100%;
+      height: auto;
+    }
+    .mobile-controls {
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      grid-gap: 10px;
+      margin-top: 20px;
+      max-width: 250px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .control-btn {
+      background-color: rgba(52, 152, 219, 0.8);
+      color: #fff;
+      border: none;
+      padding: 15px;
+      font-size: 24px;
+      border-radius: 10px;
+      cursor: pointer;
+      aspect-ratio: 1;
+    }
+    .game-over {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      padding: 36px;
+      border-radius: 16px;
+      text-align: center;
+      display: none;
+      z-index: 1001;
+      width: min(90vw, 420px);
+    }
+    .game-over h2 { font-size: 42px; margin-bottom: 18px; color: #e74c3c; }
+    .game-over p { font-size: 20px; margin-bottom: 12px; }
+    .restart-btn {
+      background-color: #3498db;
+      color: #fff;
+      border: none;
+      padding: 14px 28px;
+      font-size: 18px;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    .save-tip { color: #93c5fd; font-size: 14px; line-height: 1.7; }
+    @media (max-width: 768px) {
+      .mobile-controls { display: grid; }
+      .game-info { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <h1>贪吃蛇大作战</h1>
+    <div class="game-info">
+      <div class="info-box">当前分数：<span id="score">0</span></div>
+      <div class="info-box">本地最高：<span id="highScore">0</span></div>
+      <div class="info-box">状态：<span id="saveStatus">待开始</span></div>
+    </div>
+    <canvas id="gameCanvas" width="600" height="400"></canvas>
+
+    <div class="mobile-controls">
+      <div></div>
+      <button class="control-btn" id="upBtn">↑</button>
+      <div></div>
+      <button class="control-btn" id="leftBtn">←</button>
+      <button class="control-btn" id="downBtn">↓</button>
+      <button class="control-btn" id="rightBtn">→</button>
+    </div>
+  </div>
+
+  <div class="game-over" id="gameOver">
+    <h2>游戏结束</h2>
+    <p>最终分数：<span id="finalScore">0</span></p>
+    <p class="save-tip" id="resultTip">成绩正在保存...</p>
+    <button class="restart-btn" onclick="restartGame()">重新开始</button>
+  </div>
+
+  <script src="/assets/platform.js"></script>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const saveStatus = document.getElementById('saveStatus');
+    const resultTip = document.getElementById('resultTip');
+    const gridSize = 20;
+    const tileCount = canvas.width / gridSize;
+    let snake = [{ x: 10, y: 10 }];
+    let dx = gridSize;
+    let dy = 0;
+    let food = generateFood();
+    let score = 0;
+    let highScore = Number(localStorage.getItem('snakeHighScore') || 0);
+    let gameOver = false;
+    let submitted = false;
+
+    document.getElementById('highScore').textContent = highScore;
+
+    function resizeCanvas() {
+      const container = document.querySelector('.game-container');
+      const containerWidth = Math.min(container.clientWidth, 640);
+      const aspectRatio = canvas.width / canvas.height;
+      canvas.style.width = `${containerWidth}px`;
+      canvas.style.height = `${containerWidth / aspectRatio}px`;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function generateFood() {
+      let newFood;
+      do {
+        newFood = {
+          x: Math.floor(Math.random() * tileCount),
+          y: Math.floor(Math.random() * (canvas.height / gridSize))
+        };
+      } while (snake.some((segment) => segment.x === newFood.x && segment.y === newFood.y));
+      return newFood;
+    }
+
+    function drawSnake() {
+      snake.forEach((segment, index) => {
+        ctx.fillStyle = index === 0 ? '#e74c3c' : '#2ecc71';
+        ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+        ctx.strokeStyle = '#27ae60';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(segment.x * gridSize, segment.y * gridSize, gridSize, gridSize);
+      });
+    }
+
+    function drawFood() {
+      ctx.fillStyle = '#f1c40f';
+      ctx.beginPath();
+      ctx.arc(food.x * gridSize + gridSize / 2, food.y * gridSize + gridSize / 2, gridSize / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawGrid() {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawGame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      drawSnake();
+      drawFood();
+    }
+
+    function checkCollision() {
+      const head = snake[0];
+      if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= canvas.height / gridSize) {
+        endGame();
+        return;
+      }
+      for (let i = 1; i < snake.length; i++) {
+        if (head.x === snake[i].x && head.y === snake[i].y) {
+          endGame();
+          return;
+        }
+      }
+    }
+
+    async function persistScoreOnce() {
+      if (submitted) return;
+      submitted = true;
+      saveStatus.textContent = '保存中...';
+      resultTip.textContent = '成绩正在保存...';
+      try {
+        await GamePlatform.submitScore({ gameKey: 'snake', score, result: 'completed', meta: { length: snake.length } });
+        saveStatus.textContent = '已保存';
+        resultTip.textContent = '本局成绩已成功写入数据库和排行榜。';
+      } catch (error) {
+        saveStatus.textContent = '保存失败';
+        resultTip.textContent = '成绩保存失败：' + (error.message || '未知错误');
+      }
+    }
+
+    function endGame() {
+      gameOver = true;
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('snakeHighScore', String(highScore));
+        document.getElementById('highScore').textContent = highScore;
+      }
+      document.getElementById('finalScore').textContent = score;
+      document.getElementById('gameOver').style.display = 'block';
+      persistScoreOnce();
+    }
+
+    function updateGame() {
+      if (gameOver) return;
+      const head = { x: snake[0].x + dx / gridSize, y: snake[0].y + dy / gridSize };
+      snake.unshift(head);
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        document.getElementById('score').textContent = score;
+        food = generateFood();
+      } else {
+        snake.pop();
+      }
+      checkCollision();
+      drawGame();
+      setTimeout(updateGame, 100);
+    }
+
+    function restartGame() {
+      snake = [{ x: 10, y: 10 }];
+      dx = gridSize;
+      dy = 0;
+      food = generateFood();
+      score = 0;
+      gameOver = false;
+      submitted = false;
+      document.getElementById('score').textContent = '0';
+      saveStatus.textContent = '待开始';
+      resultTip.textContent = '成绩正在保存...';
+      document.getElementById('gameOver').style.display = 'none';
+      updateGame();
+    }
+
+    function changeDirection(direction) {
+      const goingUp = dy === -gridSize;
+      const goingDown = dy === gridSize;
+      const goingLeft = dx === -gridSize;
+      const goingRight = dx === gridSize;
+      if (direction === 'left' && !goingRight) { dx = -gridSize; dy = 0; }
+      if (direction === 'up' && !goingDown) { dx = 0; dy = -gridSize; }
+      if (direction === 'right' && !goingLeft) { dx = gridSize; dy = 0; }
+      if (direction === 'down' && !goingUp) { dx = 0; dy = gridSize; }
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowLeft') changeDirection('left');
+      if (event.key === 'ArrowUp') changeDirection('up');
+      if (event.key === 'ArrowRight') changeDirection('right');
+      if (event.key === 'ArrowDown') changeDirection('down');
+    });
+    document.getElementById('leftBtn').addEventListener('click', () => changeDirection('left'));
+    document.getElementById('upBtn').addEventListener('click', () => changeDirection('up'));
+    document.getElementById('rightBtn').addEventListener('click', () => changeDirection('right'));
+    document.getElementById('downBtn').addEventListener('click', () => changeDirection('down'));
+
+    window.restartGame = restartGame;
+    GamePlatform.injectHeader({ paddingTop: 92 }).then(() => {
+      saveStatus.textContent = '进行中';
+      updateGame();
+    }).catch(() => {});
+  </script>
+</body>
+</html>

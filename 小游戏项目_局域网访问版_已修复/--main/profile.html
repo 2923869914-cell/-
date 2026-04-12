@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户中心</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      padding: 100px 20px 24px;
+      font-family: Arial, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    .page { max-width: 1200px; margin: 0 auto; }
+    .hero {
+      background: linear-gradient(135deg, #111827, #1d4ed8 55%, #38bdf8);
+      color: #fff;
+      border-radius: 26px;
+      padding: 26px;
+      margin-bottom: 22px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+    }
+    .hero h1 { font-size: 34px; margin-bottom: 12px; }
+    .hero p { color: #e2e8f0; line-height: 1.8; }
+    .stats, .best-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .stat, .best-card, .table-wrap {
+      background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 16px 35px rgba(15, 23, 42, 0.08);
+      padding: 20px;
+      color: #0f172a;
+    }
+    .stat .label, .best-card .label { color: #64748b; margin-bottom: 10px; font-size: 14px; }
+    .stat .value, .best-card .value { font-size: 28px; font-weight: 700; color: #0f172a; }
+    h2 { font-size: 28px; margin: 24px 0 14px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 14px;
+    }
+    th { color: #475569; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>用户中心</h1>
+      <p>这里可以看到注册信息、累计游戏数据、各游戏最佳成绩，以及最近的成绩入库记录。你玩过的每一局都会在这里沉淀下来。</p>
+      <div class="stats">
+        <div class="stat"><div class="label">用户名</div><div class="value" id="userName">读取中...</div></div>
+        <div class="stat"><div class="label">角色</div><div class="value" id="userRole">读取中...</div></div>
+        <div class="stat"><div class="label">注册时间</div><div class="value" id="createdAt" style="font-size:18px;">--</div></div>
+        <div class="stat"><div class="label">最近登录</div><div class="value" id="lastLoginAt" style="font-size:18px;">--</div></div>
+      </div>
+    </section>
+
+    <h2>总体数据</h2>
+    <div class="stats">
+      <div class="stat"><div class="label">已记录局数</div><div class="value" id="totalPlays">0</div></div>
+      <div class="stat"><div class="label">累计积分</div><div class="value" id="totalScore">0</div></div>
+      <div class="stat"><div class="label">历史最高分</div><div class="value" id="bestScore">0</div></div>
+    </div>
+
+    <h2>各游戏最佳成绩</h2>
+    <div class="best-grid" id="bestGrid"></div>
+
+    <h2>最近成绩记录</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>游戏</th>
+            <th>成绩</th>
+            <th>结果</th>
+            <th>耗时</th>
+            <th>时间</th>
+          </tr>
+        </thead>
+        <tbody id="recentRows"><tr><td colspan="5">加载中...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/assets/platform.js"></script>
+  <script>
+    async function loadProfile() {
+      const data = await GamePlatform.fetchJSON('/api/profile');
+      document.getElementById('userName').textContent = data.user.username;
+      document.getElementById('userRole').textContent = data.user.role;
+      document.getElementById('createdAt').textContent = GamePlatform.formatDateTime(data.user.createdAt);
+      document.getElementById('lastLoginAt').textContent = GamePlatform.formatDateTime(data.user.lastLoginAt);
+      document.getElementById('totalPlays').textContent = data.stats.totalPlays;
+      document.getElementById('totalScore').textContent = data.stats.totalScore;
+      document.getElementById('bestScore').textContent = data.stats.bestScore;
+
+      const bestGrid = document.getElementById('bestGrid');
+      if (!data.bestByGame.length) {
+        bestGrid.innerHTML = '<div class="best-card"><div class="label">提示</div><div class="value" style="font-size:18px;">你还没有成绩记录，快去玩一局吧。</div></div>';
+      } else {
+        bestGrid.innerHTML = data.bestByGame.map((item) => `
+          <div class="best-card">
+            <div class="label">${item.gameName}</div>
+            <div class="value">${item.bestScore}</div>
+            <div style="margin-top:8px;color:#64748b;font-size:14px;">已记录局数：${item.playCount}</div>
+          </div>
+        `).join('');
+      }
+
+      const recentRows = document.getElementById('recentRows');
+      if (!data.recentScores.length) {
+        recentRows.innerHTML = '<tr><td colspan="5">暂无成绩记录。</td></tr>';
+      } else {
+        recentRows.innerHTML = data.recentScores.map((item) => `
+          <tr>
+            <td>${item.gameName}</td>
+            <td>${item.score}</td>
+            <td>${item.result}</td>
+            <td>${GamePlatform.formatDuration(item.durationSeconds)}</td>
+            <td>${GamePlatform.formatDateTime(item.createdAt)}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    GamePlatform.injectHeader({ paddingTop: 96 })
+      .then(loadProfile)
+      .catch((err) => {
+        console.error(err);
+        alert('用户中心加载失败：' + (err && err.message ? err.message : '未知错误'));
+      });
+  </script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小游戏平台登录</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(0, 229, 255, 0.24), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(244, 114, 182, 0.18), transparent 30%),
+        linear-gradient(135deg, #0f172a, #0b1120 40%, #1e293b);
+      color: #fff;
+    }
+    .panel {
+      width: 100%;
+      max-width: 440px;
+      background: rgba(2, 6, 23, 0.85);
+      border: 1px solid rgba(34, 211, 238, 0.16);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.38);
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .head { padding: 28px 26px 10px; text-align: center; }
+    .head h1 { color: #22d3ee; font-size: 30px; margin-bottom: 10px; }
+    .head p { color: #cbd5e1; line-height: 1.7; font-size: 14px; }
+    .tips {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.78);
+      font-size: 13px;
+      color: #a5f3fc;
+      line-height: 1.7;
+    }
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 16px 24px 0;
+    }
+    .tab {
+      border: none;
+      cursor: pointer;
+      border-radius: 12px;
+      padding: 12px;
+      font-weight: 700;
+      color: #cbd5e1;
+      background: rgba(255,255,255,0.08);
+    }
+    .tab.active {
+      background: linear-gradient(90deg, #06b6d4, #22d3ee);
+      color: #082f49;
+    }
+    .body { padding: 24px; }
+    .form { display: none; gap: 14px; }
+    .form.active { display: grid; }
+    .input {
+      width: 100%;
+      border: 1px solid rgba(34, 211, 238, 0.6);
+      border-radius: 12px;
+      padding: 13px 14px;
+      font-size: 14px;
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+      outline: none;
+    }
+    .input::placeholder { color: #94a3b8; }
+    .btn {
+      border: none;
+      cursor: pointer;
+      border-radius: 12px;
+      padding: 13px;
+      font-size: 16px;
+      font-weight: 700;
+      background: linear-gradient(90deg, #06b6d4, #22d3ee);
+      color: #082f49;
+    }
+    .btn:disabled { opacity: .7; cursor: not-allowed; }
+    .message { min-height: 24px; font-size: 14px; margin-bottom: 10px; }
+    .message.error { color: #fda4af; }
+    .message.success { color: #86efac; }
+    .foot {
+      text-align: center;
+      color: #f9a8d4;
+      padding: 0 24px 24px;
+      line-height: 1.8;
+      font-size: 13px;
+    }
+    .foot a { color: #f9a8d4; }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <div class="head">
+      <h1>小游戏平台</h1>
+      <p>这版已经补齐完整账号系统：注册、登录、数据库用户表、密码加密、用户中心、排行榜、成绩入库、管理员后台。</p>
+      <div class="tips">
+        默认管理员账号：<strong>admin</strong><br>
+        默认管理员密码：<strong>123456</strong>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="login">登录</button>
+      <button class="tab" data-tab="register">注册</button>
+    </div>
+
+    <div class="body">
+      <div id="message" class="message"></div>
+
+      <form id="loginForm" class="form active">
+        <input id="loginUsername" class="input" type="text" placeholder="请输入用户名">
+        <input id="loginPassword" class="input" type="password" placeholder="请输入密码">
+        <button id="loginBtn" class="btn" type="submit">登录并进入平台</button>
+      </form>
+
+      <form id="registerForm" class="form">
+        <input id="registerUsername" class="input" type="text" placeholder="用户名，2-20 位">
+        <input id="registerPassword" class="input" type="password" placeholder="密码，至少 6 位">
+        <input id="registerConfirmPassword" class="input" type="password" placeholder="确认密码">
+        <button id="registerBtn" class="btn" type="submit">注册并自动登录</button>
+      </form>
+    </div>
+
+    <div class="foot">
+      西南民族大学出品<br>
+      <a href="https://www.swun.edu.cn" target="_blank" rel="noreferrer">https://www.swun.edu.cn</a>
+    </div>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll('.tab');
+    const forms = {
+      login: document.getElementById('loginForm'),
+      register: document.getElementById('registerForm')
+    };
+    const message = document.getElementById('message');
+    const loginBtn = document.getElementById('loginBtn');
+    const registerBtn = document.getElementById('registerBtn');
+
+    function setMessage(text, type = '') {
+      message.textContent = text || '';
+      message.className = 'message' + (type ? ' ' + type : '');
+    }
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        tabs.forEach((item) => item.classList.remove('active'));
+        Object.values(forms).forEach((form) => form.classList.remove('active'));
+        tab.classList.add('active');
+        forms[tab.dataset.tab].classList.add('active');
+        setMessage('');
+      });
+    });
+
+    document.getElementById('loginForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value.trim();
+      if (!username || !password) {
+        setMessage('请输入用户名和密码。', 'error');
+        return;
+      }
+      loginBtn.disabled = true;
+      loginBtn.textContent = '登录中...';
+      setMessage('');
+
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ username, password })
+        });
+        const contentType = response.headers.get('content-type') || '';
+        let data = null;
+
+        if (contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          const text = await response.text();
+          throw new Error('接口没有返回 JSON，请确认当前页面是通过 Node 服务地址打开的。响应片段：' + text.slice(0, 120));
+        }
+
+        if (!response.ok) throw new Error(data.message || '登录失败');
+        loginBtn.textContent = '登录成功，正在跳转...';
+        window.location.replace('/game.html');
+      } catch (error) {
+        setMessage(error.message || '登录失败。', 'error');
+        loginBtn.disabled = false;
+        loginBtn.textContent = '登录并进入平台';
+      }
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const username = document.getElementById('registerUsername').value.trim();
+      const password = document.getElementById('registerPassword').value.trim();
+      const confirmPassword = document.getElementById('registerConfirmPassword').value.trim();
+      if (!username || !password || !confirmPassword) {
+        setMessage('请完整填写注册信息。', 'error');
+        return;
+      }
+      registerBtn.disabled = true;
+      registerBtn.textContent = '注册中...';
+      setMessage('');
+
+      try {
+        const response = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ username, password, confirmPassword })
+        });
+        const contentType = response.headers.get('content-type') || '';
+        let data = null;
+
+        if (contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          const text = await response.text();
+          throw new Error('接口没有返回 JSON，请确认当前页面是通过 Node 服务地址打开的。响应片段：' + text.slice(0, 120));
+        }
+
+        if (!response.ok) throw new Error(data.message || '注册失败');
+        registerBtn.textContent = '注册成功，正在跳转...';
+        window.location.replace('/game.html');
+      } catch (error) {
+        setMessage(error.message || '注册失败。', 'error');
+        registerBtn.disabled = false;
+        registerBtn.textContent = '注册并自动登录';
+      }
+    });
+  </script>
+</body>
+</html>

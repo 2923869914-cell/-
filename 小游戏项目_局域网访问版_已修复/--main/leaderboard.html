@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>排行榜</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      padding: 100px 20px 24px;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg, #eff6ff, #f8fafc 60%, #eef2ff);
+      color: #0f172a;
+    }
+    .page { max-width: 1180px; margin: 0 auto; }
+    .hero {
+      border-radius: 26px;
+      background: linear-gradient(135deg, #111827, #2563eb 50%, #60a5fa);
+      color: #fff;
+      padding: 26px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+      margin-bottom: 22px;
+    }
+    .hero h1 { font-size: 34px; margin-bottom: 12px; }
+    .hero p { color: #e2e8f0; line-height: 1.8; }
+    .overview {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .game-card, .table-wrap {
+      background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 16px 35px rgba(15, 23, 42, 0.08);
+      padding: 18px;
+    }
+    .game-card .title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .game-card .score { font-size: 28px; font-weight: 700; color: #2563eb; }
+    .game-card .meta { margin-top: 8px; color: #64748b; line-height: 1.7; font-size: 14px; }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 24px 0 14px;
+      flex-wrap: wrap;
+    }
+    .toolbar h2 { font-size: 28px; }
+    select {
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .tables {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr;
+      gap: 18px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 14px;
+    }
+    th { color: #475569; }
+    @media (max-width: 920px) {
+      .tables { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>排行榜中心</h1>
+      <p>这里展示每个游戏的最高分、总游玩次数，以及当前选择游戏的 Top 20 排行榜。右侧还会列出你自己的该游戏最佳记录，方便查看个人进步。</p>
+      <div class="overview" id="overviewCards"></div>
+    </section>
+
+    <div class="toolbar">
+      <h2>按游戏查看榜单</h2>
+      <select id="gameSelect">
+        <option value="snake">贪吃蛇大作战</option>
+        <option value="minesweeper">扫雷</option>
+        <option value="fly">飞机大战</option>
+        <option value="maze">迷宫小游戏</option>
+      </select>
+    </div>
+
+    <div class="tables">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>排名</th>
+              <th>玩家</th>
+              <th>成绩</th>
+              <th>耗时</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboardRows"><tr><td colspan="5">加载中...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>我的排名</th>
+              <th>成绩</th>
+              <th>耗时</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody id="myRows"><tr><td colspan="4">加载中...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="/assets/platform.js"></script>
+  <script>
+    async function loadOverview() {
+      const data = await GamePlatform.fetchJSON('/api/leaderboard/overview');
+      const overviewCards = document.getElementById('overviewCards');
+      overviewCards.innerHTML = data.games.map((game) => `
+        <div class="game-card">
+          <div class="title">${game.gameName}</div>
+          <div class="score">${game.topScore}</div>
+          <div class="meta">榜首玩家：${game.topUsername}<br>累计记录：${game.playCount} 局</div>
+        </div>
+      `).join('');
+    }
+
+    async function loadLeaderboard() {
+      const gameKey = document.getElementById('gameSelect').value;
+      const data = await GamePlatform.fetchJSON('/api/leaderboard?gameKey=' + encodeURIComponent(gameKey));
+      const leaderboardRows = document.getElementById('leaderboardRows');
+      const myRows = document.getElementById('myRows');
+
+      if (!data.leaderboard.length) {
+        leaderboardRows.innerHTML = '<tr><td colspan="5">该游戏还没有记录。</td></tr>';
+      } else {
+        leaderboardRows.innerHTML = data.leaderboard.map((item) => `
+          <tr>
+            <td>#${item.rank}</td>
+            <td>${item.username}</td>
+            <td>${item.score}</td>
+            <td>${GamePlatform.formatDuration(item.durationSeconds)}</td>
+            <td>${GamePlatform.formatDateTime(item.createdAt)}</td>
+          </tr>
+        `).join('');
+      }
+
+      if (!data.myTop.length) {
+        myRows.innerHTML = '<tr><td colspan="4">你在这个游戏里还没有成绩记录。</td></tr>';
+      } else {
+        myRows.innerHTML = data.myTop.map((item) => `
+          <tr>
+            <td>#${item.rank}</td>
+            <td>${item.score}</td>
+            <td>${GamePlatform.formatDuration(item.durationSeconds)}</td>
+            <td>${GamePlatform.formatDateTime(item.createdAt)}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    document.getElementById('gameSelect').addEventListener('change', loadLeaderboard);
+    GamePlatform.injectHeader({ paddingTop: 96 }).then(async () => {
+      await loadOverview();
+      await loadLeaderboard();
+    }).catch(() => {});
+  </script>
+</body>
+</html>

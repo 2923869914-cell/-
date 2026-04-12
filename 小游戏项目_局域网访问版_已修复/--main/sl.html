@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>经典扫雷</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: system-ui, sans-serif; }
+    body {
+      background: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 100px 16px 24px;
+      min-height: 100vh;
+      color: #0f172a;
+    }
+    .tips {
+      width: min(100%, 420px);
+      margin-bottom: 12px;
+      font-size: 14px;
+      line-height: 1.7;
+      color: #475569;
+    }
+    .game-container {
+      background: #c0c0c0;
+      padding: 12px;
+      border: 4px solid #ffffff;
+      border-right-color: #7b7b7b;
+      border-bottom-color: #7b7b7b;
+      border-radius: 2px;
+    }
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      background: #c0c0c0;
+      border: 4px solid #7b7b7b;
+      border-right-color: #fff;
+      border-bottom-color: #fff;
+      margin-bottom: 12px;
+    }
+    .counter {
+      width: 88px;
+      height: 40px;
+      background: #000;
+      color: #ff0000;
+      font-size: 24px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 2px;
+    }
+    .status { width: 120px; color: #1d4ed8; font-weight: 700; font-size: 14px; text-align: center; }
+    .reset-btn {
+      width: 44px;
+      height: 44px;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #c0c0c0;
+      border: 4px solid #fff;
+      border-right-color: #7b7b7b;
+      border-bottom-color: #7b7b7b;
+      cursor: pointer;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 0;
+      background: #c0c0c0;
+      border: 4px solid #7b7b7b;
+      border-right-color: #fff;
+      border-bottom-color: #fff;
+    }
+    .cell {
+      width: 32px;
+      height: 32px;
+      background: #c0c0c0;
+      border: 4px solid #fff;
+      border-right-color: #7b7b7b;
+      border-bottom-color: #7b7b7b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+    }
+    .cell.revealed {
+      border: 1px solid #7b7b7b;
+      background: #e0e0e0;
+    }
+    .cell.n1 { color: #0000ff; }
+    .cell.n2 { color: #008000; }
+    .cell.n3 { color: #ff0000; }
+    .cell.n4 { color: #000080; }
+    .cell.n5 { color: #800000; }
+    .cell.n6 { color: #008080; }
+    .cell.n7 { color: #000; }
+    .cell.n8 { color: #666; }
+    @media (max-width: 480px) {
+      .cell { width: 28px; height: 28px; font-size: 14px; }
+      .counter { width: 74px; }
+      .status { width: 90px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="tips">规则：轻触翻格，长按插旗。首点必不踩雷。胜利后会按用时换算积分，失败也会记录一局成绩。</div>
+  <div class="game-container">
+    <div class="game-header">
+      <div id="mineCount" class="counter">010</div>
+      <div id="saveStatus" class="status">待开始</div>
+      <button id="resetBtn" class="reset-btn">🙂</button>
+      <div id="timer" class="counter">000</div>
+    </div>
+    <div id="board" class="board"></div>
+  </div>
+
+  <script src="/assets/platform.js"></script>
+  <script>
+    const ROWS = 10;
+    const COLS = 10;
+    const MINES = 10;
+    const boardEl = document.getElementById('board');
+    const mineCountEl = document.getElementById('mineCount');
+    const timerEl = document.getElementById('timer');
+    const resetBtn = document.getElementById('resetBtn');
+    const saveStatus = document.getElementById('saveStatus');
+
+    let board = [];
+    let firstClick = true;
+    let gameOver = false;
+    let flagCount = 0;
+    let time = 0;
+    let timer = null;
+    let submitted = false;
+
+    function createCell() {
+      return { mine: false, count: 0, revealed: false, flag: false };
+    }
+
+    function setStatus(text) {
+      saveStatus.textContent = text;
+    }
+
+    function initBoard() {
+      board = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => createCell()));
+      firstClick = true;
+      gameOver = false;
+      flagCount = 0;
+      time = 0;
+      submitted = false;
+      clearInterval(timer);
+      timer = null;
+      timerEl.textContent = '000';
+      mineCountEl.textContent = MINES.toString().padStart(3, '0');
+      resetBtn.textContent = '🙂';
+      setStatus('待开始');
+      renderBoard();
+    }
+
+    function renderBoard() {
+      boardEl.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.dataset.r = r;
+          cell.dataset.c = c;
+          cell.addEventListener('click', () => revealCell(r, c));
+          let pressTimer = null;
+          cell.addEventListener('contextmenu', (e) => { e.preventDefault(); toggleFlag(r, c); });
+          cell.addEventListener('touchstart', () => {
+            pressTimer = setTimeout(() => toggleFlag(r, c), 500);
+          }, { passive: true });
+          cell.addEventListener('touchend', () => clearTimeout(pressTimer));
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function generateMines(safeR, safeC) {
+      let placed = 0;
+      while (placed < MINES) {
+        const r = Math.floor(Math.random() * ROWS);
+        const c = Math.floor(Math.random() * COLS);
+        if (board[r][c].mine || (r === safeR && c === safeC)) continue;
+        board[r][c].mine = true;
+        placed++;
+      }
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (board[r][c].mine) continue;
+          let count = 0;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const nr = r + dr;
+              const nc = c + dc;
+              if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc].mine) count++;
+            }
+          }
+          board[r][c].count = count;
+        }
+      }
+    }
+
+    function updateCell(r, c) {
+      const cell = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+      const item = board[r][c];
+      if (item.flag) {
+        cell.textContent = '🚩';
+      } else if (item.revealed) {
+        cell.classList.add('revealed');
+        cell.textContent = item.count || '';
+        if (item.count > 0) cell.classList.add('n' + item.count);
+      } else {
+        cell.textContent = '';
+      }
+    }
+
+    function showAllMines() {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (board[r][c].mine) {
+            const cell = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+            cell.classList.add('revealed');
+            cell.textContent = '💣';
+          }
+        }
+      }
+    }
+
+    function startTimer() {
+      timer = setInterval(() => {
+        time++;
+        timerEl.textContent = time.toString().padStart(3, '0');
+        if (time >= 999) clearInterval(timer);
+      }, 1000);
+    }
+
+    function calcWinScore() {
+      return Math.max(200, 1500 - time * 8);
+    }
+
+    async function saveResult(score, result) {
+      if (submitted) return;
+      submitted = true;
+      setStatus('保存中');
+      try {
+        await GamePlatform.submitScore({ gameKey: 'minesweeper', score, durationSeconds: time, result, meta: { mines: MINES, flags: flagCount } });
+        setStatus('已保存');
+      } catch (error) {
+        setStatus('保存失败');
+      }
+    }
+
+    function checkWin() {
+      let safe = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!board[r][c].mine && board[r][c].revealed) safe++;
+        }
+      }
+      if (safe === ROWS * COLS - MINES) {
+        gameOver = true;
+        resetBtn.textContent = '😎';
+        clearInterval(timer);
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            if (board[r][c].mine && !board[r][c].flag) {
+              board[r][c].flag = true;
+              updateCell(r, c);
+            }
+          }
+        }
+        flagCount = MINES;
+        mineCountEl.textContent = '000';
+        const score = calcWinScore();
+        setStatus('胜利 +' + score);
+        saveResult(score, 'win');
+      }
+    }
+
+    function revealCell(r, c) {
+      if (gameOver || board[r][c].flag || board[r][c].revealed) return;
+      if (firstClick) {
+        generateMines(r, c);
+        firstClick = false;
+        startTimer();
+        setStatus('进行中');
+      }
+      if (board[r][c].mine) {
+        gameOver = true;
+        resetBtn.textContent = '😵';
+        clearInterval(timer);
+        showAllMines();
+        setStatus('失败 0分');
+        saveResult(0, 'lose');
+        return;
+      }
+      board[r][c].revealed = true;
+      updateCell(r, c);
+      if (board[r][c].count === 0) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) revealCell(nr, nc);
+          }
+        }
+      }
+      checkWin();
+    }
+
+    function toggleFlag(r, c) {
+      if (gameOver || board[r][c].revealed) return;
+      board[r][c].flag = !board[r][c].flag;
+      flagCount = board.flat().filter((cell) => cell.flag).length;
+      mineCountEl.textContent = (MINES - flagCount).toString().padStart(3, '0');
+      updateCell(r, c);
+    }
+
+    resetBtn.addEventListener('click', initBoard);
+    GamePlatform.injectHeader({ paddingTop: 92 }).then(initBoard).catch(() => {});
+  </script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小游戏大厅</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg, #f8fafc, #eef2ff 60%, #f8fafc);
+      color: #0f172a;
+      padding: 100px 20px 24px;
+    }
+    .page { max-width: 1200px; margin: 0 auto; }
+    .hero {
+      background: linear-gradient(135deg, #0f172a, #1d4ed8 50%, #0ea5e9);
+      color: #fff;
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+      margin-bottom: 24px;
+    }
+    .hero h1 { font-size: 34px; margin-bottom: 10px; }
+    .hero p { color: #e2e8f0; line-height: 1.8; max-width: 820px; }
+    .hero-grid {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .mini-stat {
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 18px;
+      padding: 16px;
+    }
+    .mini-stat .label { color: #bae6fd; font-size: 13px; margin-bottom: 8px; }
+    .mini-stat .value { font-size: 24px; font-weight: 700; }
+    .section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 26px 0 14px;
+      flex-wrap: wrap;
+    }
+    .section-title h2 { font-size: 28px; }
+    .section-title a { color: #2563eb; text-decoration: none; font-weight: bold; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 18px;
+    }
+    .card {
+      text-decoration: none;
+      color: inherit;
+      background: #fff;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
+      transition: transform .18s ease, box-shadow .18s ease;
+      display: block;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.12);
+    }
+    .cover {
+      height: 160px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 42px;
+      font-weight: 700;
+    }
+    .snake { background: linear-gradient(135deg, #22c55e, #16a34a); }
+    .mine { background: linear-gradient(135deg, #f97316, #ea580c); }
+    .fly { background: linear-gradient(135deg, #38bdf8, #2563eb); }
+    .maze { background: linear-gradient(135deg, #a855f7, #7c3aed); }
+    .content { padding: 18px 18px 22px; }
+    .name { font-size: 26px; font-weight: 700; margin-bottom: 10px; }
+    .desc { color: #475569; line-height: 1.7; min-height: 48px; }
+    .meta {
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      color: #1d4ed8;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .board {
+      background: #fff;
+      border-radius: 24px;
+      padding: 18px;
+      box-shadow: 0 15px 35px rgba(15, 23, 42, 0.08);
+    }
+    .board table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .board th, .board td {
+      text-align: left;
+      padding: 12px 8px;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 14px;
+    }
+    .board th { color: #475569; }
+    @media (max-width: 640px) {
+      body { padding-left: 14px; padding-right: 14px; }
+      .hero { padding: 20px; }
+      .hero h1 { font-size: 28px; }
+      .name { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>小游戏平台大厅</h1>
+      <p>现在你拿到的是完整系统版：登录后可以进入用户中心查看个人战绩，在排行榜查看每个游戏的 Top 20，游戏结束后成绩会自动入库，管理员还能在后台管理用户和成绩。</p>
+      <div class="hero-grid">
+        <div class="mini-stat"><div class="label">当前玩家</div><div class="value" id="heroUser">读取中...</div></div>
+        <div class="mini-stat"><div class="label">当前角色</div><div class="value" id="heroRole">读取中...</div></div>
+        <div class="mini-stat"><div class="label">已记录成绩</div><div class="value" id="heroPlays">0</div></div>
+        <div class="mini-stat"><div class="label">累计积分</div><div class="value" id="heroScore">0</div></div>
+      </div>
+    </section>
+
+    <div class="section-title">
+      <h2>游戏入口</h2>
+      <a href="/profile.html">查看我的用户中心 →</a>
+    </div>
+
+    <div class="grid" id="gameGrid">
+      <a class="card" href="/snake.html">
+        <div class="cover snake">蛇</div>
+        <div class="content">
+          <div class="name">贪吃蛇大作战</div>
+          <div class="desc">经典玩法，吃到食物不断变长，结束后自动保存本局分数。</div>
+          <div class="meta"><span>进入游戏</span><span id="best-snake">我的最佳：0</span></div>
+        </div>
+      </a>
+      <a class="card" href="/sl.html">
+        <div class="cover mine">雷</div>
+        <div class="content">
+          <div class="name">扫雷</div>
+          <div class="desc">胜利会按用时换算成积分，失败也会记录一局成绩用于统计。</div>
+          <div class="meta"><span>进入游戏</span><span id="best-minesweeper">我的最佳：0</span></div>
+        </div>
+      </a>
+      <a class="card" href="/fly.html">
+        <div class="cover fly">飞</div>
+        <div class="content">
+          <div class="name">飞机大战</div>
+          <div class="desc">击落敌机会累积分数，游戏结束后自动提交成绩到排行榜。</div>
+          <div class="meta"><span>进入游戏</span><span id="best-fly">我的最佳：0</span></div>
+        </div>
+      </a>
+      <a class="card" href="/Maze_mobile.html">
+        <div class="cover maze">宫</div>
+        <div class="content">
+          <div class="name">迷宫小游戏</div>
+          <div class="desc">成功通关后会按耗时结算积分，越快积分越高。</div>
+          <div class="meta"><span>进入游戏</span><span id="best-maze">我的最佳：0</span></div>
+        </div>
+      </a>
+    </div>
+
+    <div class="section-title">
+      <h2>最新排行榜动态</h2>
+      <a href="/leaderboard.html">进入完整排行榜 →</a>
+    </div>
+
+    <div class="board">
+      <table>
+        <thead>
+          <tr>
+            <th>玩家</th>
+            <th>游戏</th>
+            <th>成绩</th>
+            <th>时间</th>
+          </tr>
+        </thead>
+        <tbody id="latestRows">
+          <tr><td colspan="4">加载中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/assets/platform.js"></script>
+  <script>
+    async function loadPage() {
+      const [meData, profileData, leaderboardData] = await Promise.all([
+        GamePlatform.fetchJSON('/api/me'),
+        GamePlatform.fetchJSON('/api/profile'),
+        GamePlatform.fetchJSON('/api/leaderboard/overview')
+      ]);
+
+      const user = meData.user;
+      document.getElementById('heroUser').textContent = user.username;
+      document.getElementById('heroRole').textContent = user.role;
+      document.getElementById('heroPlays').textContent = profileData.stats.totalPlays;
+      document.getElementById('heroScore').textContent = profileData.stats.totalScore;
+
+      const bestMap = {};
+      profileData.bestByGame.forEach((item) => {
+        bestMap[item.gameKey] = item.bestScore;
+      });
+      ['snake', 'minesweeper', 'fly', 'maze'].forEach((key) => {
+        const node = document.getElementById('best-' + key);
+        if (node) node.textContent = '我的最佳：' + (bestMap[key] || 0);
+      });
+
+      const latestRows = document.getElementById('latestRows');
+      if (!leaderboardData.latest.length) {
+        latestRows.innerHTML = '<tr><td colspan="4">还没有成绩记录，快去玩一局吧。</td></tr>';
+      } else {
+        latestRows.innerHTML = leaderboardData.latest.map((item) => `
+          <tr>
+            <td>${item.username}</td>
+            <td>${item.gameName}</td>
+            <td>${item.score}</td>
+            <td>${GamePlatform.formatDateTime(item.createdAt)}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    GamePlatform.injectHeader({ paddingTop: 96 }).then(loadPage).catch(() => {});
+  </script>
+</body>
+</html>

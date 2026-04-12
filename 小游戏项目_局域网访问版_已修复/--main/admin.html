@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员后台</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      padding: 100px 20px 24px;
+      font-family: Arial, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    .page { max-width: 1280px; margin: 0 auto; }
+    .hero {
+      border-radius: 26px;
+      background: linear-gradient(135deg, #111827, #1d4ed8 55%, #06b6d4);
+      color: #fff;
+      padding: 26px;
+      margin-bottom: 22px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18);
+    }
+    .hero h1 { font-size: 34px; margin-bottom: 12px; }
+    .hero p { color: #e2e8f0; line-height: 1.8; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .stat, .panel {
+      background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 16px 35px rgba(15, 23, 42, 0.08);
+      padding: 18px;
+      color: #0f172a;
+    }
+    .stat .label { color: #64748b; margin-bottom: 10px; }
+    .stat .value {
+      font-size: 28px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 24px 0 14px;
+    }
+    .toolbar h2 { font-size: 28px; }
+    .notice { min-height: 24px; margin-bottom: 10px; font-size: 14px; }
+    .notice.error { color: #dc2626; }
+    .notice.success { color: #16a34a; }
+    .two-col {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 18px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+    th { color: #475569; }
+    .chip {
+      display: inline-flex;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #dbeafe;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn, .small-btn, select {
+      border-radius: 10px;
+      font-size: 13px;
+    }
+    .small-btn {
+      border: none;
+      cursor: pointer;
+      padding: 8px 10px;
+      color: #fff;
+      background: #0f172a;
+    }
+    .small-btn.warn { background: #2563eb; }
+    .small-btn.danger { background: #dc2626; }
+    select {
+      border: 1px solid #cbd5e1;
+      padding: 10px 12px;
+      background: #fff;
+    }
+    @media (max-width: 980px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>管理员后台</h1>
+      <p>这里可以管理用户角色、删除用户、查看最近成绩、清理错误成绩数据。普通用户不会看到这个页面，只有 admin 角色能访问。</p>
+      <div class="summary">
+        <div class="stat"><div class="label">用户总数</div><div class="value" id="userCount">0</div></div>
+        <div class="stat"><div class="label">管理员数量</div><div class="value" id="adminCount">0</div></div>
+        <div class="stat"><div class="label">成绩记录数</div><div class="value" id="scoreCount">0</div></div>
+        <div class="stat"><div class="label">今日登录次数</div><div class="value" id="todayLogins">0</div></div>
+      </div>
+    </section>
+
+    <div id="notice" class="notice"></div>
+
+    <div class="toolbar">
+      <h2>用户管理</h2>
+      <button class="small-btn" id="refreshUsersBtn">刷新用户列表</button>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>用户名</th>
+            <th>角色</th>
+            <th>已玩局数</th>
+            <th>最高分</th>
+            <th>最近登录</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="userRows"><tr><td colspan="7">加载中...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="toolbar">
+      <h2>最近成绩</h2>
+      <div>
+        <select id="scoreGameFilter">
+          <option value="">全部游戏</option>
+          <option value="snake">贪吃蛇大作战</option>
+          <option value="minesweeper">扫雷</option>
+          <option value="fly">飞机大战</option>
+          <option value="maze">迷宫小游戏</option>
+        </select>
+        <button class="small-btn warn" id="refreshScoresBtn">刷新成绩</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>玩家</th>
+            <th>游戏</th>
+            <th>成绩</th>
+            <th>结果</th>
+            <th>耗时</th>
+            <th>时间</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="scoreRows"><tr><td colspan="8">加载中...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/assets/platform.js"></script>
+  <script>
+    const notice = document.getElementById('notice');
+    let currentUserId = null;
+
+    function setNotice(text, type = '') {
+      notice.textContent = text || '';
+      notice.className = 'notice' + (type ? ' ' + type : '');
+    }
+
+    async function loadOverview() {
+      const data = await GamePlatform.fetchJSON('/api/admin/overview');
+      document.getElementById('userCount').textContent = data.summary.userCount;
+      document.getElementById('adminCount').textContent = data.summary.adminCount;
+      document.getElementById('scoreCount').textContent = data.summary.scoreCount;
+      document.getElementById('todayLogins').textContent = data.summary.todayLogins;
+    }
+
+    async function loadUsers() {
+      const data = await GamePlatform.fetchJSON('/api/admin/users');
+      currentUserId = data.currentUserId;
+      const userRows = document.getElementById('userRows');
+      if (!data.users.length) {
+        userRows.innerHTML = '<tr><td colspan="7">暂无用户数据。</td></tr>';
+        return;
+      }
+      userRows.innerHTML = data.users.map((user) => {
+        const isSelf = Number(user.id) === Number(currentUserId);
+        const nextRole = user.role === 'admin' ? 'user' : 'admin';
+        const label = user.role === 'admin' ? '设为普通用户' : '设为管理员';
+        return `
+          <tr>
+            <td>${user.id}</td>
+            <td>${user.username}${isSelf ? '（当前登录）' : ''}</td>
+            <td><span class="chip">${user.role}</span></td>
+            <td>${user.playCount}</td>
+            <td>${user.bestScore}</td>
+            <td>${GamePlatform.formatDateTime(user.lastLoginAt)}</td>
+            <td>
+              <div class="row-actions">
+                <button class="small-btn warn" onclick="changeRole(${user.id}, '${nextRole}')">${label}</button>
+                <button class="small-btn danger" onclick="deleteUser(${user.id}, '${user.username}')" ${isSelf ? 'disabled' : ''}>删除</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function loadScores() {
+      const gameKey = document.getElementById('scoreGameFilter').value;
+      const data = await GamePlatform.fetchJSON('/api/admin/scores' + (gameKey ? ('?gameKey=' + encodeURIComponent(gameKey)) : ''));
+      const scoreRows = document.getElementById('scoreRows');
+      if (!data.rows.length) {
+        scoreRows.innerHTML = '<tr><td colspan="8">暂无成绩数据。</td></tr>';
+        return;
+      }
+      scoreRows.innerHTML = data.rows.map((row) => `
+        <tr>
+          <td>${row.id}</td>
+          <td>${row.username}</td>
+          <td>${row.gameName}</td>
+          <td>${row.score}</td>
+          <td>${row.result}</td>
+          <td>${GamePlatform.formatDuration(row.durationSeconds)}</td>
+          <td>${GamePlatform.formatDateTime(row.createdAt)}</td>
+          <td><button class="small-btn danger" onclick="deleteScore(${row.id})">删除</button></td>
+        </tr>
+      `).join('');
+    }
+
+    async function changeRole(userId, role) {
+      try {
+        const data = await GamePlatform.fetchJSON('/api/admin/users/' + userId + '/role', {
+          method: 'PATCH',
+          body: JSON.stringify({ role })
+        });
+        setNotice(data.message, 'success');
+        await loadUsers();
+      } catch (error) {
+        setNotice(error.message || '修改角色失败。', 'error');
+      }
+    }
+
+    async function deleteUser(userId, username) {
+      if (!window.confirm('确定删除用户 ' + username + ' 吗？相关成绩会一起删除。')) return;
+      try {
+        const data = await GamePlatform.fetchJSON('/api/admin/users/' + userId, { method: 'DELETE' });
+        setNotice(data.message, 'success');
+        await Promise.all([loadOverview(), loadUsers(), loadScores()]);
+      } catch (error) {
+        setNotice(error.message || '删除用户失败。', 'error');
+      }
+    }
+
+    async function deleteScore(scoreId) {
+      if (!window.confirm('确定删除这条成绩记录吗？')) return;
+      try {
+        const data = await GamePlatform.fetchJSON('/api/admin/scores/' + scoreId, { method: 'DELETE' });
+        setNotice(data.message, 'success');
+        await Promise.all([loadOverview(), loadScores()]);
+      } catch (error) {
+        setNotice(error.message || '删除成绩失败。', 'error');
+      }
+    }
+
+    document.getElementById('refreshUsersBtn').addEventListener('click', () => {
+      setNotice('');
+      loadUsers();
+    });
+    document.getElementById('refreshScoresBtn').addEventListener('click', () => {
+      setNotice('');
+      loadScores();
+    });
+    document.getElementById('scoreGameFilter').addEventListener('change', loadScores);
+    window.changeRole = changeRole;
+    window.deleteUser = deleteUser;
+    window.deleteScore = deleteScore;
+
+    GamePlatform.injectHeader({ paddingTop: 96 }).then(async () => {
+      await loadOverview();
+      await loadUsers();
+      await loadScores();
+    }).catch((error) => {
+      console.error(error);
+      setNotice(error.message || '管理员后台加载失败。', 'error');
+    });
+  </script>
+</body>
+</html>
