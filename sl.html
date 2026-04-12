@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>经典扫雷 | 全端适配</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      font-family: system-ui, sans-serif;
+    }
+
+    body {
+      background: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .game-container {
+      background: #c0c0c0;
+      padding: 12px;
+      border: 4px solid #ffffff;
+      border-right-color: #7b7b7b;
+      border-bottom-color: #7b7b7b;
+      border-radius: 2px;
+    }
+
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      background: #c0c0c0;
+      border: 4px solid #7b7b7b;
+      border-right-color: #fff;
+      border-bottom-color: #fff;
+      margin-bottom: 12px;
+    }
+
+    .counter {
+      width: 80px;
+      height: 40px;
+      background: #000;
+      color: #ff0000;
+      font-size: 24px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: 2px;
+    }
+
+    .reset-btn {
+      width: 44px;
+      height: 44px;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #c0c0c0;
+      border: 4px solid #fff;
+      border-right-color: #7b7b7b;
+      border-bottom-color: #7b7b7b;
+      cursor: pointer;
+    }
+
+    .reset-btn:active {
+      border: 4px solid #7b7b7b;
+      border-right-color: #fff;
+      border-bottom-color: #fff;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 0;
+      background: #c0c0c0;
+      border: 4px solid #7b7b7b;
+      border-right-color: #fff;
+      border-bottom-color: #fff;
+    }
+
+    .cell {
+      width: 32px;
+      height: 32px;
+      background: #c0c0c0;
+      border: 4px solid #fff;
+      border-right-color: #7b7b7b;
+      border-bottom-color: #7b7b7b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .cell.revealed {
+      border: 1px solid #7b7b7b;
+      background: #e0e0e0;
+    }
+
+    .cell.n1 { color: #0000ff; }
+    .cell.n2 { color: #008000; }
+    .cell.n3 { color: #ff0000; }
+    .cell.n4 { color: #000080; }
+    .cell.n5 { color: #800000; }
+    .cell.n6 { color: #008080; }
+    .cell.n7 { color: #000000; }
+    .cell.n8 { color: #808080; }
+
+    @media (max-width: 480px) {
+      .cell {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="game-header">
+      <div class="counter" id="mineCount">10</div>
+      <button class="reset-btn" id="resetBtn">😊</button>
+      <div class="counter" id="timer">000</div>
+    </div>
+    <div id="board" class="board"></div>
+  </div>
+
+  <script>
+    const ROWS = 10;
+    const COLS = 10;
+    const MINES = 10;
+
+    let board = [];
+    let gameOver = false;
+    let firstClick = true;
+    let timer = null;
+    let time = 0;
+    let flagCount = 0;
+
+    let leftMouseDown = false;
+    let rightMouseDown = false;
+
+    const boardEl = document.getElementById('board');
+    const resetBtn = document.getElementById('resetBtn');
+    const mineCountEl = document.getElementById('mineCount');
+    const timerEl = document.getElementById('timer');
+
+    function initBoard() {
+      boardEl.innerHTML = '';
+      board = [];
+      gameOver = false;
+      firstClick = true;
+      time = 0;
+      flagCount = 0;
+      resetBtn.textContent = '😊';
+      mineCountEl.textContent = MINES.toString().padStart(3, '0');
+      timerEl.textContent = '000';
+      clearInterval(timer);
+
+      for (let r = 0; r < ROWS; r++) {
+        board[r] = [];
+        for (let c = 0; c < COLS; c++) {
+          board[r][c] = { mine: false, revealed: false, flag: false, count: 0 };
+          const cell = document.createElement('div');
+          cell.classList.add('cell');
+          cell.dataset.r = r;
+          cell.dataset.c = c;
+
+          cell.addEventListener('mousedown', (e) => {
+            if (e.button === 0) leftMouseDown = true;
+            if (e.button === 2) rightMouseDown = true;
+            checkBothMouse(r, c);
+          });
+
+          cell.addEventListener('mouseup', (e) => {
+            if (e.button === 0) leftMouseDown = false;
+            if (e.button === 2) rightMouseDown = false;
+          });
+
+          cell.addEventListener('contextmenu', e => e.preventDefault());
+          cell.addEventListener('click', () => revealCell(r, c));
+          cell.addEventListener('auxclick', (e) => {
+            if (e.button === 2) toggleFlag(r, c);
+          });
+
+          let longPress;
+          cell.addEventListener('touchstart', () => {
+            longPress = setTimeout(() => toggleFlag(r, c), 300);
+          });
+          cell.addEventListener('touchend', () => clearTimeout(longPress));
+
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function checkBothMouse(r, c) {
+      if (leftMouseDown && rightMouseDown && !gameOver && board[r][c].revealed && board[r][c].count > 0) {
+        quickRevealNeighbors(r, c);
+      }
+    }
+
+    function quickRevealNeighbors(r, c) {
+      let flaggedNear = 0;
+      const total = board[r][c].count;
+
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr;
+          const nc = c + dc;
+          if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc].flag) {
+            flaggedNear++;
+          }
+        }
+      }
+
+      if (flaggedNear === total) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+              if (!board[nr][nc].flag && !board[nr][nc].revealed) {
+                revealCell(nr, nc);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    function generateMines(firstR, firstC) {
+      let minesPlaced = 0;
+      while (minesPlaced < MINES) {
+        const r = Math.floor(Math.random() * ROWS);
+        const c = Math.floor(Math.random() * COLS);
+        if ((r === firstR && c === firstC) || board[r][c].mine) continue;
+        board[r][c].mine = true;
+        minesPlaced++;
+      }
+
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!board[r][c].mine) {
+            let count = 0;
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                const nr = r + dr;
+                const nc = c + dc;
+                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc].mine) count++;
+              }
+            }
+            board[r][c].count = count;
+          }
+        }
+      }
+    }
+
+    function revealCell(r, c) {
+      if (gameOver || board[r][c].flag || board[r][c].revealed) return;
+
+      if (firstClick) {
+        generateMines(r, c);
+        firstClick = false;
+        startTimer();
+      }
+
+      if (board[r][c].mine) {
+        gameOver = true;
+        resetBtn.textContent = '😵';
+        clearInterval(timer);
+        showAllMines();
+        return;
+      }
+
+      board[r][c].revealed = true;
+      updateCell(r, c);
+
+      if (board[r][c].count === 0) {
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr;
+            const nc = c + dc;
+            if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) revealCell(nr, nc);
+          }
+        }
+      }
+
+      checkWin();
+    }
+
+    function toggleFlag(r, c) {
+      if (gameOver || board[r][c].revealed) return;
+      board[r][c].flag = !board[r][c].flag;
+      flagCount = board.flat().filter(cell => cell.flag).length;
+      mineCountEl.textContent = (MINES - flagCount).toString().padStart(3, '0');
+      updateCell(r, c);
+    }
+
+    function updateCell(r, c) {
+      const cell = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+      if (board[r][c].flag) {
+        cell.textContent = '🚩';
+      } else if (board[r][c].revealed) {
+        cell.classList.add('revealed');
+        cell.textContent = board[r][c].count || '';
+        if (board[r][c].count > 0) cell.classList.add(`n${board[r][c].count}`);
+      } else {
+        cell.textContent = '';
+      }
+    }
+
+    function showAllMines() {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (board[r][c].mine) {
+            const cell = document.querySelector(`[data-r="${r}"][data-c="${c}"]`);
+            cell.classList.add('revealed');
+            cell.textContent = '💣';
+          }
+        }
+      }
+    }
+
+    // 胜利时自动插满所有地雷旗子
+    function autoFlagAllMines() {
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (board[r][c].mine && !board[r][c].flag) {
+            board[r][c].flag = true;
+            updateCell(r, c);
+          }
+        }
+      }
+      flagCount = MINES;
+      mineCountEl.textContent = '000';
+    }
+
+    function checkWin() {
+      let safe = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!board[r][c].mine && board[r][c].revealed) safe++;
+        }
+      }
+      if (safe === ROWS * COLS - MINES) {
+        gameOver = true;
+        resetBtn.textContent = '😎';
+        clearInterval(timer);
+        autoFlagAllMines(); // 自动插旗
+      }
+    }
+
+    function startTimer() {
+      timer = setInterval(() => {
+        time++;
+        timerEl.textContent = time.toString().padStart(3, '0');
+        if (time >= 999) clearInterval(timer);
+      }, 1000);
+    }
+
+    resetBtn.addEventListener('click', initBoard);
+    initBoard();
+  </script>
+</body>
+</html>
